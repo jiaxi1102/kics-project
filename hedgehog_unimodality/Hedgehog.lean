@@ -63,21 +63,103 @@ theorem window_succ_sub_window (a : ℤ → ℤ) (r : ℕ) (k : ℤ) :
   | zero => simp [Window]
   | succ r ih =>
       simp only [Window]
-      rw [ih]
       have hidx : k + 1 - ((Nat.succ r : ℕ) : ℤ) = k - (r : ℤ) := by
         omega
       rw [hidx]
-      ring
+      omega
+
+/-- A first crossing of the two endpoints of a moving window supplies a mode
+for the resulting sequence. -/
+theorem window_unimodalAt_of_transition {a : ℤ → ℤ} {m : ℤ}
+    (hm : UnimodalAt a m) (r t : ℕ) (ht : t < r)
+    (hcross :
+      a (m + (t : ℤ) + 1) ≤
+        a (m + (t : ℤ) + 1 - (r : ℤ)))
+    (hbefore : ∀ s < t,
+      a (m + (s : ℤ) + 1 - (r : ℤ)) ≤
+        a (m + (s : ℤ) + 1)) :
+    UnimodalAt (Window r a) (m + (t : ℤ)) := by
+  constructor
+  · intro k hk
+    have hcomp : a (k + 1 - (r : ℤ)) ≤ a (k + 1) := by
+      by_cases hkm : k < m
+      · exact hm.left_le (i := k + 1 - (r : ℤ)) (j := k + 1)
+          (by omega) (by omega)
+      · have hmk : m ≤ k := by omega
+        let s : ℕ := (k - m).toNat
+        have hs0 : 0 ≤ k - m := by omega
+        have hscast : (s : ℤ) = k - m := by
+          dsimp [s]
+          exact Int.toNat_of_nonneg hs0
+        have hst : s < t := by omega
+        have hs := hbefore s hst
+        convert hs using 1 <;> omega
+    have hd := window_succ_sub_window a r k
+    omega
+  · intro k hk
+    have hcomp : a (k + 1) ≤ a (k + 1 - (r : ℤ)) := by
+      by_cases hfar : m + (r : ℤ) - 1 ≤ k
+      · exact hm.right_le (i := k + 1 - (r : ℤ)) (j := k + 1)
+          (by omega) (by omega)
+      · have hlead :
+            a (k + 1) ≤ a (m + (t : ℤ) + 1) :=
+          hm.right_le (i := m + (t : ℤ) + 1) (j := k + 1)
+            (by omega) (by omega)
+        have htrail :
+            a (m + (t : ℤ) + 1 - (r : ℤ)) ≤
+              a (k + 1 - (r : ℤ)) :=
+          hm.left_le
+            (i := m + (t : ℤ) + 1 - (r : ℤ))
+            (j := k + 1 - (r : ℤ)) (by omega) (by omega)
+        exact hlead.trans (hcross.trans htrail)
+    have hd := window_succ_sub_window a r k
+    omega
+
+/-- Convolution with a block of ones preserves unimodality. -/
+theorem window_preserves_unimodal {a : ℤ → ℤ} (h : Unimodal a) (r : ℕ) :
+    Unimodal (Window r a) := by
+  rcases h with ⟨m, hm⟩
+  by_cases hr : r = 0
+  · subst r
+    refine ⟨0, ?_⟩
+    constructor <;> intro k hk <;> simp [Window]
+  · have hrpos : 0 < r := Nat.pos_of_ne_zero hr
+    let P : ℕ → Prop := fun s =>
+      s < r ∧
+        a (m + (s : ℤ) + 1) ≤
+          a (m + (s : ℤ) + 1 - (r : ℤ))
+    have hP : ∃ s, P s := by
+      refine ⟨r - 1, ?_⟩
+      constructor
+      · omega
+      · have hdec : a (m + (r : ℤ)) ≤ a m :=
+          hm.right_le (i := m) (j := m + (r : ℤ)) (by omega) (by omega)
+        dsimp [P]
+        convert hdec using 1 <;> omega
+    let t : ℕ := Nat.find hP
+    have htP : P t := by
+      simpa [t] using Nat.find_spec hP
+    have hbefore : ∀ s < t,
+        a (m + (s : ℤ) + 1 - (r : ℤ)) ≤
+          a (m + (s : ℤ) + 1) := by
+      intro s hst
+      have hnot : ¬ P s := by
+        apply Nat.find_min hP
+        simpa [t] using hst
+      have hsr : s < r := lt_trans hst htP.1
+      have hnotle :
+          ¬ a (m + (s : ℤ) + 1) ≤
+            a (m + (s : ℤ) + 1 - (r : ℤ)) := by
+        intro hle
+        exact hnot ⟨hsr, hle⟩
+      exact le_of_lt (lt_of_not_ge hnotle)
+    refine ⟨m + (t : ℤ), ?_⟩
+    exact window_unimodalAt_of_transition hm r t htP.1 htP.2 hbefore
 
 /-- Apply the quantum-integer windows in descending order. -/
 def DescendWindows : ℕ → (ℤ → ℤ) → (ℤ → ℤ)
   | 0, a => a
   | r + 1, a => DescendWindows r (Window (r + 1) a)
-
-/-- Convolution with a block of ones preserves unimodality. -/
-theorem window_preserves_unimodal {a : ℤ → ℤ} (h : Unimodal a) (r : ℕ) :
-    Unimodal (Window r a) := by
-  sorry
 
 /-- Repeated descending quantum-integer convolution preserves unimodality. -/
 theorem descendWindows_preserves_unimodal {a : ℤ → ℤ} (h : Unimodal a) :
