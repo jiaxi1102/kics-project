@@ -4,6 +4,19 @@ import Mathlib
 def A248802 (n : ℕ) : ℕ :=
   (2 ^ (2 ^ n + 2) + 3).minFac
 
+/-- Small finite-ring certificates used to reduce the nested exponent. -/
+theorem pow29_mod233 : (2 : ZMod 233) ^ 29 = 1 := by
+  native_decide
+
+theorem pow26_mod233 : (2 : ZMod 233) ^ 26 = 204 := by
+  native_decide
+
+theorem pow233_mod1399 : (2 : ZMod 1399) ^ 233 = 1 := by
+  native_decide
+
+theorem pow206_mod1399 : (2 : ZMod 1399) ^ 206 = 1396 := by
+  native_decide
+
 /-- The inner exponent at index 7044 is 206 modulo 233. -/
 theorem innerExponent_mod_233 :
     (2 ^ 7044 + 2) % 233 = 206 := by
@@ -12,7 +25,7 @@ theorem innerExponent_mod_233 :
       (2 : ZMod 233) ^ 7044 = (2 : ZMod 233) ^ (26 + 29 * 242) := by norm_num
       _ = (2 : ZMod 233) ^ 26 * ((2 : ZMod 233) ^ 29) ^ 242 := by
         rw [pow_add, pow_mul]
-      _ = 204 := by norm_num
+      _ = 204 := by simp [pow29_mod233, pow26_mod233]
   have hcast : ((2 ^ 7044 + 2 : ℕ) : ZMod 233) = 206 := by
     push_cast
     rw [hpow]
@@ -33,16 +46,16 @@ theorem outerPower_mod_1399 :
           (((2 : ZMod 1399) ^ 233) ^ ((2 ^ 7044 + 2) / 233)) := by
             rw [pow_add, pow_mul]
     _ = 1396 := by
-      rw [innerExponent_mod_233]
-      norm_num
+      rw [innerExponent_mod_233, pow206_mod1399, pow233_mod1399]
+      simp
 
 /-- A compact independently checkable divisor certificate. -/
 theorem divisor_1399_at_7044 :
     1399 ∣ 2 ^ (2 ^ 7044 + 2) + 3 := by
-  rw [← ZMod.natCast_eq_zero_iff]
+  apply (ZMod.natCast_eq_zero_iff (2 ^ (2 ^ 7044 + 2) + 3) 1399).mp
   push_cast
   rw [outerPower_mod_1399]
-  norm_num
+  native_decide
 
 /-- Therefore the least prime factor at index 7044 is strictly below 1669. -/
 theorem A248802_at_7044_ne_1669 :
