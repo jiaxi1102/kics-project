@@ -178,7 +178,65 @@ theorem binary_first_window_unimodal (n : ℕ) (a : ℤ → ℤ)
     (hsupport : ∀ k, k < 0 ∨ (n : ℤ) ≤ k → a k = 0)
     (hn : 2 ≤ n) :
     Unimodal (Window (n - 1) a) := by
-  sorry
+  have hnonneg (k : ℤ) : 0 ≤ a k := by
+    rcases hbin k with hk | hk <;> omega
+  have hrCast : ((n - 1 : ℕ) : ℤ) = (n : ℤ) - 1 := by
+    omega
+  have hleftEarly : ∀ k : ℤ, k < (n : ℤ) - 2 →
+      Window (n - 1) a k ≤ Window (n - 1) a (k + 1) := by
+    intro k hk
+    have hdrop : a (k + 1 - ((n - 1 : ℕ) : ℤ)) = 0 := by
+      apply hsupport
+      left
+      rw [hrCast]
+      omega
+    have hadd := hnonneg (k + 1)
+    have hd := window_succ_sub_window a (n - 1) k
+    rw [hdrop] at hd
+    omega
+  have hrightLate : ∀ k : ℤ, (n : ℤ) - 1 ≤ k →
+      Window (n - 1) a (k + 1) ≤ Window (n - 1) a k := by
+    intro k hk
+    have hadd : a (k + 1) = 0 := by
+      apply hsupport
+      right
+      omega
+    have hdrop := hnonneg (k + 1 - ((n - 1 : ℕ) : ℤ))
+    have hd := window_succ_sub_window a (n - 1) k
+    rw [hadd] at hd
+    omega
+  have hmiddle :
+      Window (n - 1) a ((n : ℤ) - 1) -
+          Window (n - 1) a ((n : ℤ) - 2) =
+        a ((n : ℤ) - 1) - a 0 := by
+    have hd := window_succ_sub_window a (n - 1) ((n : ℤ) - 2)
+    rw [hrCast] at hd
+    convert hd using 1 <;> omega
+  by_cases hmid : a ((n : ℤ) - 1) ≤ a 0
+  · refine ⟨(n : ℤ) - 2, ?_⟩
+    constructor
+    · exact hleftEarly
+    · intro k hk
+      by_cases heq : k = (n : ℤ) - 2
+      · have hdec :
+            Window (n - 1) a ((n : ℤ) - 1) ≤
+              Window (n - 1) a ((n : ℤ) - 2) := by
+          omega
+        convert hdec using 1 <;> omega
+      · exact hrightLate k (by omega)
+  · refine ⟨(n : ℤ) - 1, ?_⟩
+    constructor
+    · intro k hk
+      by_cases hearly : k < (n : ℤ) - 2
+      · exact hleftEarly k hearly
+      · have heq : k = (n : ℤ) - 2 := by omega
+        subst k
+        have hinc :
+            Window (n - 1) a ((n : ℤ) - 2) ≤
+              Window (n - 1) a ((n : ℤ) - 1) := by
+          omega
+        convert hinc using 1 <;> omega
+    · exact hrightLate
 
 /-- Algebraic form of the hedgehog conjecture: every zero-one polynomial with
 support in degrees `0,...,n-1`, multiplied by `[n-1]_q!`, is unimodal. -/
@@ -186,7 +244,35 @@ theorem binary_quantumFactorial_unimodal (n : ℕ) (a : ℤ → ℤ)
     (hbin : ∀ k, a k = 0 ∨ a k = 1)
     (hsupport : ∀ k, k < 0 ∨ (n : ℤ) ≤ k → a k = 0) :
     Unimodal (DescendWindows (n - 1) a) := by
-  sorry
+  have hnonneg (k : ℤ) : 0 ≤ a k := by
+    rcases hbin k with hk | hk <;> omega
+  by_cases hn : 2 ≤ n
+  · have hfirst := binary_first_window_unimodal n a hbin hsupport hn
+    have hsplit : n - 1 = (n - 2) + 1 := by omega
+    have hfactor :
+        DescendWindows (n - 1) a =
+          DescendWindows (n - 2) (Window (n - 1) a) := by
+      rw [hsplit]
+      rfl
+    rw [hfactor]
+    exact descendWindows_preserves_unimodal hfirst (n - 2)
+  · have hnsmall : n ≤ 1 := by omega
+    have ha : Unimodal a := by
+      refine ⟨0, ?_⟩
+      constructor
+      · intro k hk
+        have hkzero : a k = 0 := hsupport k (Or.inl hk)
+        have hnext := hnonneg (k + 1)
+        omega
+      · intro k hk
+        have hnextzero : a (k + 1) = 0 := by
+          apply hsupport
+          right
+          omega
+        have hhere := hnonneg k
+        omega
+    have hnsub : n - 1 = 0 := by omega
+    simpa [hnsub, DescendWindows] using ha
 
 /-- The zero-one coefficient sequence associated to a delay choice. -/
 def delayedIndicator (n : ℕ) (ε : ℕ → Bool) (k : ℤ) : ℤ :=
