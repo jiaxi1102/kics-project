@@ -1,7 +1,5 @@
 name: Mine OEIS Open candidates
 on:
-  push:
-    branches: [lean-open-question-2026-08-31]
   workflow_dispatch:
 permissions:
   contents: read
