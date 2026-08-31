@@ -11,10 +11,14 @@ permissions:
 env:
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
 
+concurrency:
+  group: pr2-larry-validation
+  cancel-in-progress: true
+
 jobs:
   analyze:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -22,8 +26,8 @@ jobs:
           python-version: "3.12"
       - name: Install numerical dependencies
         run: python -m pip install numpy pandas scipy scikit-learn matplotlib
-      - name: Run checksum-verified exact-horizon analysis
-        run: python tools/pr2_larry_runner.py --output pr2_results
+      - name: Run checksum-verified exact-horizon release analysis
+        run: python tools/pr2_larry_runner_release.py --output pr2_results
       - name: Upload compact validation artifacts
         uses: actions/upload-artifact@v4
         with:
