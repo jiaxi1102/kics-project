@@ -18,7 +18,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Development elaboration check
+      - name: Reject unfinished proof markers
+        shell: bash
+        working-directory: hedgehog_unimodality
+        run: |
+          if grep -nE '\b(sorry|admit)\b' Hedgehog.lean; then
+            echo "Unfinished proof marker found"
+            exit 1
+          fi
+
+      - name: Build, audit axioms, and replay with an independent kernel
         uses: leanprover/lean-action@v1
         env:
           LEAN_NUM_THREADS: "1"
@@ -27,5 +36,7 @@ jobs:
           build: true
           test: false
           lint: false
-          axiom-audit: false
-          nanoda: false
+          axiom-audit: true
+          axiom-audit-root: Hedgehog
+          nanoda: true
+          nanoda-allow-sorry: false
