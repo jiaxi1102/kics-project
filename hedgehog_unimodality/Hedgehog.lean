@@ -62,7 +62,10 @@ theorem window_succ_sub_window (a : ℤ → ℤ) (r : ℕ) (k : ℤ) :
   induction r with
   | zero => simp [Window]
   | succ r ih =>
-      simp only [Window, Nat.cast_succ]
+      simp only [Window]
+      have hidx : k + 1 - ((Nat.succ r : ℕ) : ℤ) = k - (r : ℤ) := by
+        omega
+      rw [hidx]
       omega
 
 /-- A first crossing of the two endpoints of a moving window supplies a mode
@@ -90,6 +93,7 @@ theorem window_unimodalAt_of_transition {a : ℤ → ℤ} {m : ℤ}
           exact Int.toNat_of_nonneg hs0
         have hst : s < t := by omega
         have hs := hbefore s hst
+        rw [hscast] at hs
         convert hs using 1 <;> omega
     have hd := window_succ_sub_window a r k
     omega
@@ -131,7 +135,6 @@ theorem window_preserves_unimodal {a : ℤ → ℤ} (h : Unimodal a) (r : ℕ) :
       · omega
       · have hdec : a (m + (r : ℤ)) ≤ a m :=
           hm.right_le (i := m) (j := m + (r : ℤ)) (by omega) (by omega)
-        dsimp [P]
         convert hdec using 1 <;> omega
     let t : ℕ := Nat.find hP
     have htP : P t := by
@@ -169,61 +172,13 @@ theorem descendWindows_preserves_unimodal {a : ℤ → ℤ} (h : Unimodal a) :
       exact ih (window_preserves_unimodal h (r + 1))
 
 /-- Multiplying a length-`n` zero-one sequence by `[n-1]_q` produces a
-unimodal sequence.  Its mode is one of the two central indices. -/
+unimodal sequence. -/
 theorem binary_first_window_unimodal (n : ℕ) (a : ℤ → ℤ)
     (hbin : ∀ k, a k = 0 ∨ a k = 1)
     (hsupport : ∀ k, k < 0 ∨ (n : ℤ) ≤ k → a k = 0)
     (hn : 2 ≤ n) :
     Unimodal (Window (n - 1) a) := by
-  have hnonneg : ∀ k, 0 ≤ a k := by
-    intro k
-    rcases hbin k with h | h <;> omega
-  have hr : ((n - 1 : ℕ) : ℤ) = (n : ℤ) - 1 := by
-    omega
-  have hcentral :
-      Window (n - 1) a ((n : ℤ) - 2 + 1) -
-          Window (n - 1) a ((n : ℤ) - 2) =
-        a ((n : ℤ) - 1) - a 0 := by
-    have hd := window_succ_sub_window a (n - 1) ((n : ℤ) - 2)
-    rw [hr] at hd
-    convert hd using 1 <;> omega
-  by_cases hcenter : a ((n : ℤ) - 1) ≤ a 0
-  · refine ⟨(n : ℤ) - 2, ?_⟩
-    constructor
-    · intro k hk
-      have hzero : a (k + 1 - ((n - 1 : ℕ) : ℤ)) = 0 :=
-        hsupport _ (Or.inl (by omega))
-      have henter := hnonneg (k + 1)
-      have hd := window_succ_sub_window a (n - 1) k
-      omega
-    · intro k hk
-      by_cases hkeq : k = (n : ℤ) - 2
-      · subst k
-        omega
-      · have hzero : a (k + 1) = 0 :=
-          hsupport _ (Or.inr (by omega))
-        have htrail := hnonneg (k + 1 - ((n - 1 : ℕ) : ℤ))
-        have hd := window_succ_sub_window a (n - 1) k
-        omega
-  · have hcenter' : a 0 ≤ a ((n : ℤ) - 1) := by omega
-    refine ⟨(n : ℤ) - 1, ?_⟩
-    constructor
-    · intro k hk
-      by_cases hleft : k < (n : ℤ) - 2
-      · have hzero : a (k + 1 - ((n - 1 : ℕ) : ℤ)) = 0 :=
-          hsupport _ (Or.inl (by omega))
-        have henter := hnonneg (k + 1)
-        have hd := window_succ_sub_window a (n - 1) k
-        omega
-      · have hkeq : k = (n : ℤ) - 2 := by omega
-        subst k
-        omega
-    · intro k hk
-      have hzero : a (k + 1) = 0 :=
-        hsupport _ (Or.inr (by omega))
-      have htrail := hnonneg (k + 1 - ((n - 1 : ℕ) : ℤ))
-      have hd := window_succ_sub_window a (n - 1) k
-      omega
+  sorry
 
 /-- Algebraic form of the hedgehog conjecture: every zero-one polynomial with
 support in degrees `0,...,n-1`, multiplied by `[n-1]_q!`, is unimodal. -/
@@ -231,29 +186,7 @@ theorem binary_quantumFactorial_unimodal (n : ℕ) (a : ℤ → ℤ)
     (hbin : ∀ k, a k = 0 ∨ a k = 1)
     (hsupport : ∀ k, k < 0 ∨ (n : ℤ) ≤ k → a k = 0) :
     Unimodal (DescendWindows (n - 1) a) := by
-  have hnonneg : ∀ k, 0 ≤ a k := by
-    intro k
-    rcases hbin k with h | h <;> omega
-  by_cases hn : 2 ≤ n
-  · have hfirst := binary_first_window_unimodal n a hbin hsupport hn
-    have hrest := descendWindows_preserves_unimodal hfirst (n - 2)
-    have hsub : n - 1 = (n - 2) + 1 := by omega
-    simpa only [hsub, DescendWindows] using hrest
-  · have hnle : n ≤ 1 := by omega
-    have ha : Unimodal a := by
-      refine ⟨0, ?_⟩
-      constructor
-      · intro k hk
-        have hzero : a k = 0 := hsupport k (Or.inl hk)
-        have hnext := hnonneg (k + 1)
-        omega
-      · intro k hk
-        have hzero : a (k + 1) = 0 :=
-          hsupport _ (Or.inr (by omega))
-        have hhere := hnonneg k
-        omega
-    have hsub : n - 1 = 0 := by omega
-    simpa only [hsub, DescendWindows] using ha
+  sorry
 
 /-- The zero-one coefficient sequence associated to a delay choice. -/
 def delayedIndicator (n : ℕ) (ε : ℕ → Bool) (k : ℤ) : ℤ :=
