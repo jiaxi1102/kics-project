@@ -1,0 +1,25 @@
+name: Lean A248802 proof check
+
+on:
+  push:
+    branches:
+      - lean-proof/a248802-counterexample
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: formal/a248802
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install elan
+        run: |
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Resolve dependencies
+        run: lake update
+      - name: Download mathlib cache
+        run: lake exe cache get
+      - name: Kernel-check proof
+        run: lake build
