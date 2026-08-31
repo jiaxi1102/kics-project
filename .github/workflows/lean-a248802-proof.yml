@@ -21,5 +21,13 @@ jobs:
         run: lake update
       - name: Download mathlib cache
         run: lake exe cache get
-      - name: Kernel-check proof
-        run: lake build
+      - name: Reject unfinished proofs
+        run: |
+          if grep -nE '\b(sorry|admit)\b' A248802Counterexample.lean; then
+            echo "Unfinished proof marker found"
+            exit 1
+          fi
+      - name: Elaborate and kernel-check proof file
+        run: lake env lean A248802Counterexample.lean
+      - name: Build declared Lean target
+        run: lake build A248802Counterexample
