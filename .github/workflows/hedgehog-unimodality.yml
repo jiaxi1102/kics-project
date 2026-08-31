@@ -1,0 +1,85 @@
+name: Hedgehog unimodality Lean verification
+
+on:
+  push:
+    branches:
+      - lean-open-question-2026-08-31
+    paths:
+      - hedgehog_unimodality/**
+      - .github/workflows/hedgehog-unimodality.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Elaborate, build, audit axioms, and independently kernel-check
+        id: lean
+        continue-on-error: true
+        uses: leanprover/lean-action@v1
+        env:
+          LEAN_NUM_THREADS: "1"
+        with:
+          lake-package-directory: hedgehog_unimodality
+          build: true
+          test: false
+          lint: false
+          axiom-audit: true
+          axiom-audit-root: Hedgehog
+          nanoda: true
+          nanoda-allow-sorry: false
+
+      - name: Capture reproducible build transcript
+        if: always()
+        id: transcript
+        shell: bash
+        env:
+          ACTION_BUILD: ${{ steps.lean.outputs.build-status }}
+          ACTION_AXIOMS: ${{ steps.lean.outputs.axiom-audit-status }}
+          ACTION_NANODA: ${{ steps.lean.outputs.nanoda-status }}
+        run: |
+          set +e
+          cd hedgehog_unimodality
+          lake build 2>&1 | tee ../hedgehog-verification.log
+          status=${PIPESTATUS[0]}
+          {
+            echo
+            echo "manual_lake_build_exit=$status"
+            echo "lean_action_build=$ACTION_BUILD"
+            echo "lean_action_axiom_audit=$ACTION_AXIOMS"
+            echo "lean_action_nanoda=$ACTION_NANODA"
+            echo "lean_version=$(lean --version | head -n 1)"
+          } >> ../hedgehog-verification.log
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Commit verification transcript to the isolated branch
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hedgehog-verification.log
+          if ! git diff --cached --quiet; then
+            git commit -m "Record Lean verification transcript"
+            git push
+          fi
+
+      - name: Enforce all verification gates
+        if: always()
+        shell: bash
+        env:
+          MANUAL_BUILD: ${{ steps.transcript.outputs.status }}
+          ACTION_BUILD: ${{ steps.lean.outputs.build-status }}
+          ACTION_AXIOMS: ${{ steps.lean.outputs.axiom-audit-status }}
+          ACTION_NANODA: ${{ steps.lean.outputs.nanoda-status }}
+        run: |
+          test "$MANUAL_BUILD" = "0"
+          test "$ACTION_BUILD" = "SUCCESS"
+          test "$ACTION_AXIOMS" = "SUCCESS"
+          test "$ACTION_NANODA" = "SUCCESS"
