@@ -94,7 +94,8 @@ theorem window_unimodalAt_of_transition {a : ℤ → ℤ} {m : ℤ}
         have hst : s < t := by omega
         have hs := hbefore s hst
         rw [hscast] at hs
-        convert hs using 1 <;> omega
+        have hcancel : m + (k - m) + 1 = k + 1 := by omega
+        simpa only [hcancel] using hs
     have hd := window_succ_sub_window a r k
     omega
   · intro k hk
@@ -135,7 +136,13 @@ theorem window_preserves_unimodal {a : ℤ → ℤ} (h : Unimodal a) (r : ℕ) :
       · omega
       · have hdec : a (m + (r : ℤ)) ≤ a m :=
           hm.right_le (i := m) (j := m + (r : ℤ)) (by omega) (by omega)
-        convert hdec using 1 <;> omega
+        have hleadIndex :
+            m + ((r - 1 : ℕ) : ℤ) + 1 = m + (r : ℤ) := by
+          omega
+        have htrailIndex :
+            m + (r : ℤ) - (r : ℤ) = m := by
+          omega
+        simpa only [hleadIndex, htrailIndex] using hdec
     let t : ℕ := Nat.find hP
     have htP : P t := by
       simpa [t] using Nat.find_spec hP
@@ -211,18 +218,22 @@ theorem binary_first_window_unimodal (n : ℕ) (a : ℤ → ℤ)
         a ((n : ℤ) - 1) - a 0 := by
     have hd := window_succ_sub_window a (n - 1) ((n : ℤ) - 2)
     rw [hrCast] at hd
-    convert hd using 1 <;> omega
+    have hstep : (n : ℤ) - 2 + 1 = (n : ℤ) - 1 := by omega
+    have hzero : (n : ℤ) - 1 - ((n : ℤ) - 1) = 0 := by omega
+    simpa only [hstep, hzero] using hd
   by_cases hmid : a ((n : ℤ) - 1) ≤ a 0
   · refine ⟨(n : ℤ) - 2, ?_⟩
     constructor
     · exact hleftEarly
     · intro k hk
       by_cases heq : k = (n : ℤ) - 2
-      · have hdec :
+      · subst k
+        have hdec :
             Window (n - 1) a ((n : ℤ) - 1) ≤
               Window (n - 1) a ((n : ℤ) - 2) := by
           omega
-        convert hdec using 1 <;> omega
+        have hstep : (n : ℤ) - 2 + 1 = (n : ℤ) - 1 := by omega
+        simpa only [hstep] using hdec
       · exact hrightLate k (by omega)
   · refine ⟨(n : ℤ) - 1, ?_⟩
     constructor
@@ -235,7 +246,8 @@ theorem binary_first_window_unimodal (n : ℕ) (a : ℤ → ℤ)
             Window (n - 1) a ((n : ℤ) - 2) ≤
               Window (n - 1) a ((n : ℤ) - 1) := by
           omega
-        convert hinc using 1 <;> omega
+        have hstep : (n : ℤ) - 2 + 1 = (n : ℤ) - 1 := by omega
+        simpa only [hstep] using hinc
     · exact hrightLate
 
 /-- Algebraic form of the hedgehog conjecture: every zero-one polynomial with
