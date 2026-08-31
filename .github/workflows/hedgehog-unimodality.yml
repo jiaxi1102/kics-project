@@ -1,0 +1,42 @@
+name: Hedgehog unimodality Lean verification
+
+on:
+  push:
+    branches:
+      - lean-open-question-2026-08-31
+    paths:
+      - hedgehog_unimodality/**
+      - .github/workflows/hedgehog-unimodality.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reject unfinished proof markers
+        shell: bash
+        working-directory: hedgehog_unimodality
+        run: |
+          if grep -nE '\b(sorry|admit)\b' Hedgehog.lean; then
+            echo "Unfinished proof marker found"
+            exit 1
+          fi
+
+      - name: Build, audit axioms, and check the compiled environment
+        uses: leanprover/lean-action@v1
+        env:
+          LEAN_NUM_THREADS: "1"
+        with:
+          lake-package-directory: hedgehog_unimodality
+          build: true
+          test: false
+          lint: false
+          leanchecker: true
+          leanchecker-args: "Hedgehog"
+          axiom-audit: true
+          axiom-audit-root: Hedgehog
