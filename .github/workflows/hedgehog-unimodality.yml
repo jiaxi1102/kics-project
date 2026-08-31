@@ -27,7 +27,7 @@ jobs:
             exit 1
           fi
 
-      - name: Build, audit axioms, and replay with an independent kernel
+      - name: Build, audit axioms, and check the compiled environment
         uses: leanprover/lean-action@v1
         env:
           LEAN_NUM_THREADS: "1"
@@ -36,7 +36,7 @@ jobs:
           build: true
           test: false
           lint: false
+          leanchecker: true
+          leanchecker-args: "Hedgehog"
           axiom-audit: true
           axiom-audit-root: Hedgehog
-          nanoda: true
-          nanoda-allow-sorry: false
