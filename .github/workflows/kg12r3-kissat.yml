@@ -1,0 +1,96 @@
+name: Exact KG(12,3) Kneser-Ramsey search
+
+on:
+  push:
+    branches: [compute/kg12r3-kissat]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kg12r3-kissat
+  cancel-in-progress: true
+
+jobs:
+  solve:
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [sat, default, unsat]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate canonical instance
+        run: |
+          mkdir -p "kg12r3/results/${{ matrix.configuration }}"
+          python kg12r3/search_kneser_r3_exact.py generate \
+            "kg12r3/results/${{ matrix.configuration }}"
+      - name: Install authenticated Kissat binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            -o kissat.zip \
+            https://github.com/arminbiere/kissat/releases/download/rel-4.0.4/kissat-4.0.4-linux-amd64.zip
+          echo "63282e5168ca040a2018edfba0726bf893a7a6bcdb1db87feb67857e2da697a7  kissat.zip" \
+            | sha256sum --check --strict
+          unzip -q kissat.zip -d kissat-bin
+          find kissat-bin -type f -printf '%s %p\n' | sort -nr | tee kissat-files.txt
+          KISSAT="$(find kissat-bin -type f -iname 'kissat*' | head -n 1)"
+          if [[ -z "$KISSAT" ]]; then
+            KISSAT="$(find kissat-bin -type f -printf '%s %p\n' | sort -nr | head -n1 | cut -d' ' -f2-)"
+          fi
+          chmod +x "$KISSAT"
+          echo "KISSAT=$KISSAT" >> "$GITHUB_ENV"
+          "$KISSAT" --version | tee kissat-version.txt
+      - name: Solve and verify
+        id: solve
+        shell: bash
+        run: |
+          set -uo pipefail
+          result="kg12r3/results/${{ matrix.configuration }}"
+          option=()
+          [[ "${{ matrix.configuration }}" == default ]] || option+=("--${{ matrix.configuration }}")
+          set +e
+          timeout --signal=TERM --kill-after=30s 1800s \
+            "$KISSAT" "${option[@]}" "$result/kg12_3_no_mono_triangle.cnf" \
+            > "$result/solver.out" 2> "$result/solver.err"
+          code=$?
+          set -e
+          echo "$code" > "$result/solver-exit-code.txt"
+          if [[ $code -eq 10 ]]; then
+            python kg12r3/search_kneser_r3_exact.py verify "$result/solver.out" "$result"
+            echo "outcome=SAT_VERIFIED" >> "$GITHUB_OUTPUT"
+          elif [[ $code -eq 20 ]]; then
+            python kg12r3/search_kneser_r3_exact.py verify "$result/solver.out" "$result"
+            echo "outcome=UNSAT_UNVERIFIED" >> "$GITHUB_OUTPUT"
+          elif [[ $code -eq 124 || $code -eq 137 || $code -eq 143 ]]; then
+            echo '{"solver_status":"TIMEOUT","mathematical_claim":"none"}' > "$result/solver-status.json"
+            echo "outcome=TIMEOUT" >> "$GITHUB_OUTPUT"
+          else
+            echo "Unexpected solver exit: $code" >&2
+            cat "$result/solver.err" >&2
+            exit "$code"
+          fi
+      - name: Job summary
+        if: always()
+        run: |
+          echo "${{ matrix.configuration }}: ${{ steps.solve.outputs.outcome || 'failed' }}" >> "$GITHUB_STEP_SUMMARY"
+          find "kg12r3/results/${{ matrix.configuration }}" -maxdepth 1 -type f -printf '%f %s bytes\n' \
+            >> "$GITHUB_STEP_SUMMARY" || true
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kg12r3-${{ matrix.configuration }}
+          path: |
+            kg12r3/results/${{ matrix.configuration }}/
+            kissat-version.txt
+            kissat-files.txt
+          if-no-files-found: error
+          retention-days: 30
